@@ -1,0 +1,8 @@
+.env
+bin/
+.vs
+.vscode
+.idea
+src_old
+obj/
+README_old.md

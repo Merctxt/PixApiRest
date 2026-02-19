@@ -1,0 +1,1 @@
+Estou reescrevendo o repositório https://github.com/Merctxt/ApiRest-pix para usar .NET
