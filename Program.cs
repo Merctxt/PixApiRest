@@ -56,8 +56,8 @@ builder.Services.AddSwaggerGen(options =>
         Description = "API para gerenciamento de pagamentos PIX",
         Contact = new OpenApiContact
         {
-            Name = "PIX API",
-            Email = "contato@pixapi.com"
+            Name = "Contact Support",
+            Url = new Uri("https://github.com/Merctxt")
         }
     });
 
