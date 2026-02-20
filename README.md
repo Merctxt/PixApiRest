@@ -22,9 +22,11 @@ SERVER_ADDRESS=0.0.0.0
 SERVER_PORT=8080
 PIX_RECEIVER_CITY=SAO PAULO
 LIMIT_TIME_PIX=3600
+LIMIT_REQUESTS_DAY_BY_IP=20
 ```
 
-- `LIMIT_TIME_PIX`: Maximum time (in seconds) that a PIX transaction remains at the bank. After this period, it is automatically removed. Default: 3600 (1 hour).
+- `LIMIT_TIME_PIX`: Maximum time (in seconds) that a PIX transaction remains at the database. After this period, it is automatically removed. Default: 3600 (1 hour).
+- `LIMIT_REQUESTS_DAY_BY_IP`: Maximum number of payment creation requests per IP per day. Default: 20.
 
 ### Running the Project
 
