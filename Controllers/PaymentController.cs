@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PixApiRest.DTOs;
 using PixApiRest.Entities;
+using PixApiRest.Exceptions;
 using PixApiRest.Services;
 
 namespace PixApiRest.Controllers;
@@ -16,11 +17,13 @@ public class PaymentController : ControllerBase
 {
     private readonly PaymentService _paymentService;
     private readonly QrCodeService _qrCodeService;
+    private readonly RateLimitService _rateLimitService;
 
-    public PaymentController(PaymentService paymentService, QrCodeService qrCodeService)
+    public PaymentController(PaymentService paymentService, QrCodeService qrCodeService, RateLimitService rateLimitService)
     {
         _paymentService = paymentService;
         _qrCodeService = qrCodeService;
+        _rateLimitService = rateLimitService;
     }
 
     /// <summary>
@@ -28,13 +31,52 @@ public class PaymentController : ControllerBase
     /// </summary>
     /// <param name="dto">Dados para criação do pagamento</param>
     /// <returns>Pagamento criado</returns>
+    /// <response code="429">Rate limit excedido</response>
     [HttpPost]
     [ProducesResponseType(typeof(PaymentResponseDTO), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<PaymentResponseDTO>> CreatePayment([FromBody] PaymentCreateDTO dto)
     {
+        var ipAddress = GetClientIpAddress();
+        
+        if (!_rateLimitService.IsAllowed(ipAddress, out var remaining))
+        {
+            var (used, _, limit) = _rateLimitService.GetUsageInfo(ipAddress);
+            Response.Headers["X-RateLimit-Limit"] = limit.ToString();
+            Response.Headers["X-RateLimit-Remaining"] = "0";
+            Response.Headers["X-RateLimit-Reset"] = DateTime.UtcNow.Date.AddDays(1).ToString("o");
+            
+            return StatusCode(StatusCodes.Status429TooManyRequests, new ErrorResponse
+            {
+                Timestamp = DateTime.UtcNow,
+                Status = 429,
+                Error = "Too Many Requests",
+                Message = $"Limite de {limit} requisições por dia excedido. Tente novamente amanhã.",
+                Path = HttpContext.Request.Path
+            });
+        }
+
+        // Add rate limit headers
+        var usageInfo = _rateLimitService.GetUsageInfo(ipAddress);
+        Response.Headers["X-RateLimit-Limit"] = usageInfo.limit.ToString();
+        Response.Headers["X-RateLimit-Remaining"] = usageInfo.remaining.ToString();
+        Response.Headers["X-RateLimit-Reset"] = DateTime.UtcNow.Date.AddDays(1).ToString("o");
+
         var result = await _paymentService.CreatePaymentAsync(dto);
         return CreatedAtAction(nameof(FindById), new { id = result.Id }, result);
+    }
+
+    private string GetClientIpAddress()
+    {
+        // Check for forwarded IP (when behind proxy/load balancer)
+        var forwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(forwardedFor))
+        {
+            return forwardedFor.Split(',')[0].Trim();
+        }
+        
+        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     /// <summary>

@@ -41,6 +41,7 @@ else
 builder.Services.AddScoped<PixPayloadService>();
 builder.Services.AddScoped<QrCodeService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddSingleton<RateLimitService>();
 
 // Register background service for cleaning expired payments
 builder.Services.AddHostedService<PaymentCleanupService>();
