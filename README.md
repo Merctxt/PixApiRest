@@ -2,7 +2,6 @@
 
 ![.NET](https://img.shields.io/badge/.NET-9-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv2-blue.svg)](https://www.gnu.org/licenses/gpl-2.0)
 
 
