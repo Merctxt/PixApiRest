@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using PixApiRest.Data;
 using PixApiRest.Middleware;
 using PixApiRest.Services;
+// using Npgsql.EntityFrameworkCore.PostgreSQL; // PostgreSQL - commented out in favor of SQLite
 
 // Load environment variables from .env file
 Env.Load();
@@ -24,18 +25,25 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// Configure PostgreSQL Database
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-if (!string.IsNullOrEmpty(databaseUrl))
-{
-    var connectionString = ConvertPostgresUrlToConnectionString(databaseUrl);
-    builder.Services.AddDbContext<PixDbContext>(options =>
-        options.UseNpgsql(connectionString));
-}
-else
-{
-    throw new InvalidOperationException("DATABASE_URL environment variable is not set");
-}
+// Configure SQLite Database
+var dbFolder = Path.Combine(AppContext.BaseDirectory, "data");
+Directory.CreateDirectory(dbFolder);
+var sqliteConnectionString = $"Data Source={Path.Combine(dbFolder, "pix.db")}";
+builder.Services.AddDbContext<PixDbContext>(options =>
+    options.UseSqlite(sqliteConnectionString));
+
+// Configure PostgreSQL Database (commented out)
+// var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+// if (!string.IsNullOrEmpty(databaseUrl))
+// {
+//     var connectionString = ConvertPostgresUrlToConnectionString(databaseUrl);
+//     builder.Services.AddDbContext<PixDbContext>(options =>
+//         options.UseNpgsql(connectionString));
+// }
+// else
+// {
+//     throw new InvalidOperationException("DATABASE_URL environment variable is not set");
+// }
 
 // Register services
 builder.Services.AddScoped<PixPayloadService>();
@@ -96,17 +104,16 @@ app.MapControllers();
 
 app.Run();
 
-// Convert PostgreSQL URL format to Npgsql connection string
-static string ConvertPostgresUrlToConnectionString(string databaseUrl)
-{
-    // Format: postgresql://user:password@host:port/database
-    var uri = new Uri(databaseUrl);
-    var userInfo = uri.UserInfo.Split(':');
-    var username = userInfo[0];
-    var password = userInfo.Length > 1 ? userInfo[1] : string.Empty;
-    var host = uri.Host;
-    var port = uri.Port > 0 ? uri.Port : 5432;
-    var database = uri.AbsolutePath.TrimStart('/');
-
-    return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-}
+// Convert PostgreSQL URL format to Npgsql connection string (commented out)
+// static string ConvertPostgresUrlToConnectionString(string databaseUrl)
+// {
+//     // Format: postgresql://user:password@host:port/database
+//     var uri = new Uri(databaseUrl);
+//     var userInfo = uri.UserInfo.Split(':');
+//     var username = userInfo[0];
+//     var password = userInfo.Length > 1 ? userInfo[1] : string.Empty;
+//     var host = uri.Host;
+//     var port = uri.Port > 0 ? uri.Port : 5432;
+//     var database = uri.AbsolutePath.TrimStart('/');
+//
+//     return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
