@@ -17,8 +17,6 @@ public class PixDbContext : DbContext
 
         modelBuilder.Entity<Payment>(entity =>
         {
-            entity.HasIndex(e => e.Txid).IsUnique();
-
             entity.Property(e => e.Status)
                   .HasConversion<string>();
 

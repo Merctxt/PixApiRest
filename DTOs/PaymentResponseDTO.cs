@@ -13,11 +13,6 @@ public class PaymentResponseDTO
     public long Id { get; set; }
 
     /// <summary>
-    /// Identificador único da transação
-    /// </summary>
-    public string Txid { get; set; } = string.Empty;
-
-    /// <summary>
     /// Valor do pagamento
     /// </summary>
     public decimal Amount { get; set; }

@@ -94,20 +94,6 @@ public class PaymentController : ControllerBase
     }
 
     /// <summary>
-    /// Buscar pagamento por TXID
-    /// </summary>
-    /// <param name="txid">TXID do pagamento</param>
-    /// <returns>Pagamento encontrado</returns>
-    [HttpGet("txid/{txid}")]
-    [ProducesResponseType(typeof(PaymentResponseDTO), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PaymentResponseDTO>> FindByTxid(string txid)
-    {
-        var result = await _paymentService.FindByTxidAsync(txid);
-        return Ok(result);
-    }
-
-    /// <summary>
     /// Listar pagamentos
     /// </summary>
     /// <returns>Lista de pagamentos</returns>
@@ -129,22 +115,6 @@ public class PaymentController : ControllerBase
     public async Task<ActionResult<List<PaymentResponseDTO>>> FindByStatus(PaymentStatus status)
     {
         var result = await _paymentService.FindByStatusAsync(status);
-        return Ok(result);
-    }
-
-    /// <summary>
-    /// Atualizar pagamento
-    /// </summary>
-    /// <param name="id">ID do pagamento</param>
-    /// <param name="dto">Dados para atualização</param>
-    /// <returns>Pagamento atualizado</returns>
-    [HttpPut("{id:long}")]
-    [ProducesResponseType(typeof(PaymentResponseDTO), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PaymentResponseDTO>> UpdatePayment(long id, [FromBody] PaymentUpdateDTO dto)
-    {
-        var result = await _paymentService.UpdatePaymentAsync(id, dto);
         return Ok(result);
     }
 

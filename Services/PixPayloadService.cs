@@ -6,11 +6,10 @@ namespace PixApiRest.Services;
 public class PixPayloadService
 {
     public string GerarPayload(string chave, decimal valor, string nomeRecebedor,
-                                string cidadeRecebedor, string txid, string? merchantCategoryCode)
+                                string cidadeRecebedor, string? merchantCategoryCode)
     {
         var nomeSanitizado = SanitizarNome(nomeRecebedor);
         var cidadeSanitizada = SanitizarCidade(cidadeRecebedor);
-        var txidSanitizado = SanitizarTxid(txid);
         var mcc = merchantCategoryCode ?? "0000";
 
         var payload = new StringBuilder();
@@ -40,8 +39,8 @@ public class PixPayloadService
         // Merchant City
         payload.Append(FormatarCampo("60", cidadeSanitizada));
 
-        // Additional Data Field Template (TXID)
-        var additionalData = FormatarCampo("05", txidSanitizado);
+        // Additional Data Field Template (referência fixa conforme padrão PIX)
+        var additionalData = FormatarCampo("05", "***");
         payload.Append(FormatarCampo("62", additionalData));
 
         // CRC16
@@ -98,15 +97,6 @@ public class PixPayloadService
         sanitizado = System.Text.RegularExpressions.Regex.Replace(sanitizado, @"[^a-zA-Z0-9 ]", "").Trim();
 
         return sanitizado.Length > 15 ? sanitizado[..15] : sanitizado;
-    }
-
-    private string SanitizarTxid(string? txid)
-    {
-        if (string.IsNullOrEmpty(txid)) return "***";
-
-        var sanitizado = System.Text.RegularExpressions.Regex.Replace(txid, @"[^a-zA-Z0-9]", "");
-
-        return sanitizado.Length > 25 ? sanitizado[..25] : sanitizado;
     }
 
     private string CalcularCRC16(string payload)

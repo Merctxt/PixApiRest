@@ -11,11 +11,6 @@ public class Payment
     public long Id { get; set; }
 
     [Required]
-    [MaxLength(35)]
-    [Column("txid")]
-    public string Txid { get; set; } = string.Empty;
-
-    [Required]
     [Column("amount", TypeName = "decimal(15,2)")]
     public decimal Amount { get; set; }
 

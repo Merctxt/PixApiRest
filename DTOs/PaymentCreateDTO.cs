@@ -24,14 +24,6 @@ public class PaymentCreateDTO
     public string? Description { get; set; }
 
     /// <summary>
-    /// Identificador único da transação (txid)
-    /// </summary>
-    /// <example>PEDIDO123</example>
-    [MaxLength(25, ErrorMessage = "O identificador de transação deve ter no máximo 25 caracteres")]
-    [RegularExpression("^[a-zA-Z0-9]*$", ErrorMessage = "O identificador deve conter apenas letras e números")]
-    public string? Txid { get; set; }
-
-    /// <summary>
     /// Chave PIX do recebedor
     /// </summary>
     /// <example>email@exemplo.com</example>
