@@ -3,28 +3,21 @@
 ![.NET](https://img.shields.io/badge/.NET-9-blue)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv2-blue.svg)](https://www.gnu.org/licenses/gpl-2.0)
 
-
 REST API for generating PIX payments following the official EMV QR Code standard defined by Banco Central do Brasil.
 
-The API generates valid PIX payloads and QR Codes for static payments, ready to be consumed by banking applications and financial systems.
+The API generates valid PIX payloads and QR Codes for static payments — fully dynamic, no database required.
 
-**Production API (Swagger UI):**  
-https://pix.giovannidev.com/index.html
+**Production API (Scalar UI):**  
+https://pix.giovannidev.com/scalar/
 
+---
 
-### environment variables (.env)
+### Environment variables (.env)
 
 ```env
-DATABASE_URL=postgresql://user:password@host:port/database
 SERVER_ADDRESS=0.0.0.0
 SERVER_PORT=8080
-PIX_RECEIVER_CITY=SAO PAULO
-LIMIT_TIME_PIX=3600
-LIMIT_REQUESTS_DAY_BY_IP=20
 ```
-
-- `LIMIT_TIME_PIX`: Maximum time (in seconds) that a PIX transaction remains at the database. After this period, it is automatically removed. Default: 3600 (1 hour).
-- `LIMIT_REQUESTS_DAY_BY_IP`: Maximum number of payment creation requests per IP per day. Default: 20.
 
 ### Running the Project
 
@@ -36,24 +29,56 @@ dotnet restore
 dotnet run
 ```
 
-The API will be available at `http://localhost:8080` with the Swagger documentation at the root.
+The API will be available at `http://localhost:8080`.  
+The interactive docs (Scalar UI) will be at `http://localhost:8080/scalar/v1`.
 
+---
 
+## Endpoints
 
-### payment status
+### `POST /pix/payment`
 
-- `PENDING` - Pendente
-- `APPROVED` - Aprovado
-- `CANCELLED` - Cancelado
-- `EXPIRED` - Expirado
+Generates a PIX EMV payload from payment data.
 
-### Key Types PIX
+**Request body:**
 
-- `CPF`
-- `CNPJ`
-- `EMAIL`
-- `PHONE`
-- `RANDOM`
+```json
+{
+  "amount": 100.00,
+  "pixKey": "email@exemplo.com",
+  "receiverName": "Venus Store",
+  "receiverCity": "SAO PAULO",
+  "merchantCategoryCode": "0000"
+}
+```
+
+> `receiverCity` and `merchantCategoryCode` are optional — defaults are `"SAO PAULO"` and `"0000"`.
+
+**Response:**
+
+```json
+{
+  "payload": "00020126580014BR.GOV.BCB.PIX..."
+}
+```
+
+---
+
+### `POST /pix/qrcode`
+
+Generates a PNG QR Code image from a PIX EMV payload.
+
+**Request body:**
+
+```json
+{
+  "payload": "00020126580014BR.GOV.BCB.PIX..."
+}
+```
+
+**Response:** `image/png` binary
+
+---
 
 ## Docker
 
@@ -62,19 +87,21 @@ docker build -t pix-api-rest .
 docker run -p 8080:8080 --env-file .env pix-api-rest
 ```
 
+---
+
 ## EMV PIX Standard
 
 The API generates PIX payloads according to the official EMV QR Code specification defined by Banco Central do Brasil.
 
-| ID | Campo | Descrição |
-|----|-------|-----------|
-| 00 | Payload Format Indicator | Sempre "01" |
-| 26 | Merchant Account Information | Contém a chave PIX |
-| 52 | Merchant Category Code | Código MCC |
+| ID | Field | Description |
+|----|-------|-------------|
+| 00 | Payload Format Indicator | Always "01" |
+| 26 | Merchant Account Information | Contains the PIX key |
+| 52 | Merchant Category Code | MCC code |
 | 53 | Transaction Currency | "986" (BRL) |
-| 54 | Transaction Amount | Valor do pagamento |
+| 54 | Transaction Amount | Payment amount |
 | 58 | Country Code | "BR" |
-| 59 | Merchant Name | Nome do recebedor (máx. 25 chars) |
-| 60 | Merchant City | Cidade do recebedor (máx. 15 chars) |
-| 62 | Additional Data Field | Contém o TXID |
-| 63 | CRC16 | Checksum CRC16-CCITT-FALSE |
+| 59 | Merchant Name | Receiver name (max 25 chars) |
+| 60 | Merchant City | Receiver city (max 15 chars) |
+| 62 | Additional Data Field | Contains TXID |
+| 63 | CRC16 | CRC16-CCITT-FALSE checksum |
