@@ -1,119 +1,106 @@
-using System.Reflection;
-using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations;
 using DotNetEnv;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
-using PixApiRest.Data;
-using PixApiRest.Middleware;
 using PixApiRest.Services;
-// using Npgsql.EntityFrameworkCore.PostgreSQL; // PostgreSQL - commented out in favor of SQLite
+using Scalar.AspNetCore;
 
-// Load environment variables from .env file
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure server address and port from environment
 var serverAddress = Environment.GetEnvironmentVariable("SERVER_ADDRESS") ?? "0.0.0.0";
 var serverPort = Environment.GetEnvironmentVariable("SERVER_PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://{serverAddress}:{serverPort}");
 
-// Add services to the container
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
-
-// Configure SQLite Database
-var dbFolder = Path.Combine(AppContext.BaseDirectory, "data");
-Directory.CreateDirectory(dbFolder);
-var sqliteConnectionString = $"Data Source={Path.Combine(dbFolder, "pix.db")}";
-builder.Services.AddDbContext<PixDbContext>(options =>
-    options.UseSqlite(sqliteConnectionString));
-
-// Configure PostgreSQL Database (commented out)
-// var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-// if (!string.IsNullOrEmpty(databaseUrl))
-// {
-//     var connectionString = ConvertPostgresUrlToConnectionString(databaseUrl);
-//     builder.Services.AddDbContext<PixDbContext>(options =>
-//         options.UseNpgsql(connectionString));
-// }
-// else
-// {
-//     throw new InvalidOperationException("DATABASE_URL environment variable is not set");
-// }
-
-// Register services
 builder.Services.AddScoped<PixPayloadService>();
 builder.Services.AddScoped<QrCodeService>();
-builder.Services.AddScoped<PaymentService>();
-builder.Services.AddSingleton<RateLimitService>();
 
-// Register background service for cleaning expired payments
-builder.Services.AddHostedService<PaymentCleanupService>();
-
-// Configure Swagger/OpenAPI
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddOpenApi(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
+    options.AddDocumentTransformer((doc, _, _) =>
     {
-        Version = "v1",
-        Title = "PIX API REST",
-        Description = "API para gerenciamento de pagamentos PIX",
-        Contact = new OpenApiContact
-        {
-            Name = "Contact Support",
-            Url = new Uri("https://github.com/Merctxt")
-        }
+        doc.Info.Title = "PIX API REST";
+        doc.Info.Version = "v1";
+        doc.Info.Description = "API para geração de pagamentos e QR Codes PIX";
+        return Task.CompletedTask;
     });
-
-    // Include XML comments for Swagger documentation
-    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
-    if (File.Exists(xmlPath))
-    {
-        options.IncludeXmlComments(xmlPath);
-    }
 });
 
 var app = builder.Build();
 
-// Apply migrations and create database
-using (var scope = app.Services.CreateScope())
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<PixDbContext>();
-    dbContext.Database.EnsureCreated();
-}
-
-// Configure the HTTP request pipeline
-app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-// Enable Swagger in all environments
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "PIX API REST v1");
-    options.RoutePrefix = string.Empty; // Swagger at root
+    options.Title = "PIX API REST";
+    options.Theme = ScalarTheme.Purple;
+    options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
 });
 
-app.UseAuthorization();
-app.MapControllers();
+app.MapPost("/pix/payment", (PixPaymentRequest req, PixPayloadService pixPayloadService) =>
+{
+    var results = new List<ValidationResult>();
+    if (!Validator.TryValidateObject(req, new ValidationContext(req), results, validateAllProperties: true))
+        return Results.ValidationProblem(results.ToDictionary(r => r.MemberNames.FirstOrDefault() ?? "", r => new[] { r.ErrorMessage ?? "" }));
+
+    var payload = pixPayloadService.GerarPayload(
+        req.PixKey,
+        req.Amount,
+        req.ReceiverName,
+        req.ReceiverCity,
+        req.MerchantCategoryCode ?? "0000");
+
+    return Results.Ok(new PixPaymentResponse(payload));
+})
+.WithName("CreatePixPayment")
+.WithSummary("Gerar payload PIX EMV")
+.WithDescription("Gera o payload no padrão EMV/QR Code PIX a partir dos dados do pagamento.")
+.WithTags("PIX")
+.Produces<PixPaymentResponse>()
+.ProducesValidationProblem();
+
+app.MapPost("/pix/qrcode", (PixQrCodeRequest req, QrCodeService qrCodeService) =>
+{
+    var results = new List<ValidationResult>();
+    if (!Validator.TryValidateObject(req, new ValidationContext(req), results, validateAllProperties: true))
+        return Results.ValidationProblem(results.ToDictionary(r => r.MemberNames.FirstOrDefault() ?? "", r => new[] { r.ErrorMessage ?? "" }));
+
+    var imageBytes = qrCodeService.GerarQrCode(req.Payload);
+    return Results.File(imageBytes, "image/png");
+})
+.WithName("GenerateQrCode")
+.WithSummary("Gerar QR Code PIX")
+.WithDescription("Gera a imagem PNG do QR Code a partir de um payload PIX EMV.")
+.WithTags("PIX")
+.Produces<byte[]>(contentType: "image/png")
+.ProducesValidationProblem();
 
 app.Run();
 
-// Convert PostgreSQL URL format to Npgsql connection string (commented out)
-// static string ConvertPostgresUrlToConnectionString(string databaseUrl)
-// {
-//     // Format: postgresql://user:password@host:port/database
-//     var uri = new Uri(databaseUrl);
-//     var userInfo = uri.UserInfo.Split(':');
-//     var username = userInfo[0];
-//     var password = userInfo.Length > 1 ? userInfo[1] : string.Empty;
-//     var host = uri.Host;
-//     var port = uri.Port > 0 ? uri.Port : 5432;
-//     var database = uri.AbsolutePath.TrimStart('/');
-//
-//     return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+// --- Request / Response models ---
+
+record PixPaymentRequest(
+    [property: Required(ErrorMessage = "O valor é obrigatório")]
+    [property: Range(0.01, 99999999.99, ErrorMessage = "O valor deve estar entre R$ 0,01 e R$ 99.999.999,99")]
+    decimal Amount,
+
+    [property: Required(ErrorMessage = "A chave PIX é obrigatória")]
+    [property: MaxLength(77, ErrorMessage = "A chave PIX deve ter no máximo 77 caracteres")]
+    string PixKey,
+
+    [property: Required(ErrorMessage = "O nome do recebedor é obrigatório")]
+    [property: MaxLength(25, ErrorMessage = "O nome deve ter no máximo 25 caracteres")]
+    string ReceiverName,
+
+    [property: Required(ErrorMessage = "A cidade do recebedor é obrigatória")]
+    [property: MaxLength(15, ErrorMessage = "A cidade deve ter no máximo 15 caracteres")]
+    string ReceiverCity = "SAO PAULO",
+
+    [property: RegularExpression("^[0-9]{4}$", ErrorMessage = "O código de categoria deve ter 4 dígitos")]
+    string? MerchantCategoryCode = "0000"
+);
+
+record PixPaymentResponse(string Payload);
+
+record PixQrCodeRequest(
+    [property: Required(ErrorMessage = "O payload é obrigatório")]
+    string Payload
+);
