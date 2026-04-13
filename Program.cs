@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.HttpOverrides;
 using DotNetEnv;
 using PixApiRest.Services;
 using Scalar.AspNetCore;
@@ -26,6 +27,10 @@ builder.Services.AddOpenApi(options =>
 });
 
 var app = builder.Build();
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.MapOpenApi();
 app.MapScalarApiReference(options =>
