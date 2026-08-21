@@ -5,8 +5,14 @@ namespace PixApiRest.Services;
 
 public class PixPayloadService
 {
-    public string GerarPayload(string chave, decimal valor, string nomeRecebedor,
-                                string cidadeRecebedor, string? merchantCategoryCode)
+    public string GerarPayload(string chave, string nomeRecebedor,
+                                string cidadeRecebedor, string? merchantCategoryCode = "0000")
+    {
+        return GerarPayload(chave, null, nomeRecebedor, cidadeRecebedor, merchantCategoryCode);
+    }
+
+    public string GerarPayload(string chave, decimal? valor, string nomeRecebedor,
+                                string cidadeRecebedor, string? merchantCategoryCode = "0000")
     {
         var nomeSanitizado = SanitizarNome(nomeRecebedor);
         var cidadeSanitizada = SanitizarCidade(cidadeRecebedor);
@@ -28,7 +34,10 @@ public class PixPayloadService
         payload.Append(FormatarCampo("53", "986"));
 
         // Transaction Amount
-        payload.Append(FormatarCampo("54", FormatarValor(valor)));
+        if (valor.HasValue && valor.Value > 0)
+        {
+            payload.Append(FormatarCampo("54", FormatarValor(valor.Value)));
+        }
 
         // Country Code
         payload.Append(FormatarCampo("58", "BR"));
